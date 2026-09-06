@@ -1,0 +1,41 @@
+FoamFile { version 2.0; format ascii; class dictionary; object functions; }
+
+forceCoeffs
+{
+    type        forceCoeffs;
+    libs        ("libforces.so");
+    writeControl timeStep;
+    writeInterval 1;
+    log         yes;
+    patches     ("SrocketMeshMin.stl");
+    rho         rhoInf;
+    rhoInf      1.225;
+    liftDir     (0 0 1);
+    dragDir     (1 0 0);
+    CofR        (-0.33 0 0);
+    pitchAxis   (0 1 0);
+    magUInf     136.1;
+    lRef        0.75;
+    Aref        0.0019635;
+}
+
+cutPlane
+{
+    type        surfaces;
+    libs        ("libsampling.so");
+    writeControl writeTime;
+    surfaceFormat vtk;
+    fields      (U p);
+    interpolationScheme cellPoint;
+    surfaces
+    {
+        yNormal
+        {
+            type        cuttingPlane;
+            planeType   pointAndNormal;
+            point       (0 0 0);
+            normal      (0 1 0);
+            interpolate true;
+        }
+    }
+}

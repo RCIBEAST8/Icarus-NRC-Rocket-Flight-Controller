@@ -1,0 +1,18 @@
+; AeroTech G78G-7  -  29 mm single-use, "Green" propellant
+; Published data (Apogee Components / AeroTech):
+;   total impulse 109.9 N-s | peak thrust 101.9 N | average 78 N
+;   burn time 1.4 s | propellant 59.7 g | total motor mass 125.0 g
+;   length 146 mm | diameter 29 mm | delay 7 s
+; Curve shape modelled to reproduce total impulse, peak and mean to <0.1%.
+; Drop this file in OpenRocket's user motor directory, or load it with
+;   Edit > Preferences > Launch/Motors > "Add motor files"
+G78G 29 146 7 0.0597 0.1250 AeroTech
+   0.060  89.67
+   0.120 101.90
+   0.350  96.07
+   0.650  88.47
+   0.950  80.87
+   1.150  75.80
+   1.300  34.11
+   1.400   0.00
+;

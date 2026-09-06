@@ -1,0 +1,10 @@
+# OpenFOAM Drag Coefficient Summary Data
+# ----------------------------------------
+Metric	Value	Unit
+Mean_Cd	0.877589	-
+Std_Dev	0.000153	-
+Min_Cd	0.877434	-
+Max_Cd	0.877935	-
+Final_Cd	0.877458	-
+Evaluated_Start_Time	0.0250	s
+Evaluated_End_Time	0.0500	s

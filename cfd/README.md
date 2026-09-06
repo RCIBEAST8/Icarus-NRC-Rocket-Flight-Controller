@@ -1,0 +1,76 @@
+# CFD
+
+Two OpenFOAM cases over the same mesh and the same reference conditions. The only
+thing that changes between them is whether the airbrakes are out. These two runs
+are where the controller's drag model comes from.
+
+| Case | Brakes | Mean Cd | Firmware constant |
+|---|---|---|---|
+| `clean/` | retracted | 0.472380 | `CDClean = 0.4724` |
+| `deployed/` | deployed | 0.877589 | `CDMax = 0.8776` |
+
+86% more drag with the brakes out. Mean Cd is averaged over 0.025-0.050 s, after
+the force history has settled down. `rangeCD.dat` in each case has the standard
+deviation and the min/max over that window if you want to see how steady it was.
+
+## Setup
+
+| | |
+|---|---|
+| Solver | OpenFOAM 13, `foamRun` |
+| Turbulence | RAS, Spalart-Allmaras |
+| Freestream | 136.1 m/s, which is Mach 0.40 |
+| Density | 1.225 kg/m^3 |
+| Kinematic viscosity | 1.5e-5 m^2/s |
+| Reynolds number | about 6.8e6 on lRef = 0.75 m |
+| Reference area | 0.0019635 m^2, body cross section at r = 25 mm |
+| Reference length | 0.75 m |
+| Time stepping | adjustable, max Courant 0.7, ends at 0.05 s |
+
+`Aref` is the body cross section. It is not the total projected frontal area of
+the deployed config (that's about 0.00340 m^2, 1.73x bigger). The firmware uses
+the same 0.0019635, so the CFD and what the rocket thinks are always the same
+number.
+Don't mix the two up.
+
+## Where these numbers are weak
+
+Worth being straight about, because it tells you how far to trust them.
+
+The solver is incompressible and I'm running it at Mach 0.40. The usual rule of
+thumb is incompressible holds to about Mach 0.3. At 0.40 the real density
+variation over the vehicle is something like 8%, so treat these as a solid
+engineering estimate rather than a converged compressible answer.
+
+The airbrake blades are modelled as detached plates. In the mesh the radius jumps
+from 25.0 to 33.4 mm with an 8.4 mm gap, and there's no linkage or slot geometry
+in there at all.
+
+The back end is a flat 50 mm disc. No nozzle, no boat tail. Base drag is doing
+real work in the clean number because of that.
+
+Axial flow only, one angle of attack. No yaw or pitch sweep.
+
+## Running it again
+
+Only the case dictionaries are tracked here, so `0/`, `system/` and the physical
+properties in `constant/`. The mesh is about 46 MB per case and the raw solver
+output is much bigger, so neither is in git. Rebuild from the STL in
+[`../geometry/`](../geometry/):
+
+```bash
+surfaceFeatures && blockMesh && snappyHexMesh -overwrite && foamRun
+```
+
+These take a while. Don't sit there blocking on them, background it and watch the
+log:
+
+```bash
+foamRun > log.foamRun 2>&1 &
+```
+
+`scripts/` has the post-processing I used to get from `forceCoeffs.dat` down to
+the summary numbers above.
+
+There's also a separate fin position study (`Wing_pos_*`) that isn't in here. I
+can add it if it's useful.

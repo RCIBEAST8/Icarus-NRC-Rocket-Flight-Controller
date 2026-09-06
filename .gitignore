@@ -1,0 +1,64 @@
+# ---------------------------------------------------------------
+# Hardware design source is deliberately NOT published.
+# The PCB is shown as renders only (hardware/renders/).
+# ---------------------------------------------------------------
+*.kicad_pcb
+*.kicad_sch
+*.kicad_pro
+*.kicad_prl
+*.kicad_prl.lck
+*-backups/
+*.kicad_pcb-bak
+*.kicad_sch-bak
+fp-info-cache
+# fabrication / assembly outputs
+*.pos
+*.gbr
+*.gbrjob
+*.drl
+*.net
+gerbers/
+
+# ---------------------------------------------------------------
+# Customer payload — not ours to publish. Never commit.
+# ---------------------------------------------------------------
+*payload*
+*Payload*
+*customer*
+*Customer*
+
+# ---------------------------------------------------------------
+# OpenFOAM run artefacts (case dictionaries only are tracked)
+# ---------------------------------------------------------------
+processor*/
+[0-9]*.[0-9]*/
+!0/
+postProcessing/
+VTK/
+constant/polyMesh/
+constant/extendedFeatureEdgeMesh/
+constant/triSurface/
+*.foam
+log.*
+badFaces
+fluentInterface/
+
+# ---------------------------------------------------------------
+# CAD / MATLAB / Windows / editor
+# ---------------------------------------------------------------
+*.f3d.lock
+slprj/
+*.slxc
+*.asv
+*.autosave
+*:Zone.Identifier
+Thumbs.db
+desktop.ini
+.DS_Store
+*~
+*.swp
+
+# secrets
+*.env
+wifi_credentials.h
+secrets.h

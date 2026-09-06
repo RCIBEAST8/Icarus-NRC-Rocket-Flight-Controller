@@ -1,0 +1,133 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      snappyHexMeshDict;
+}
+
+castellatedMesh true;
+snap            true;
+addLayers       true;
+
+geometry
+{
+    SRocketMesh.stl
+    {
+        type triSurface;
+        file "SRocketMesh.stl";
+    }
+    refinementBox
+    {
+        type box;
+        min (-1.0 -0.3 -0.3);
+        max ( 0.2  0.3  0.3);
+    }
+    aftRefinementBox
+    {
+        type box;
+        min (-0.75 -0.15 -0.15);
+        max (-0.20  0.15  0.15);
+    }
+};
+
+castellatedMeshControls
+{
+    maxLocalCells 3000000;
+    maxGlobalCells 12000000;
+    minRefinementCells 10;
+    maxLoadUnbalance 0.10;
+    nCellsBetweenLevels 3;
+
+    features
+    (
+        {
+            file "SRocketMesh.eMesh";
+            level 6;
+        }
+    );
+
+    refinementSurfaces
+    {
+        SRocketMesh.stl
+        {
+            level (5 6);
+            patchInfo { type wall; }
+        }
+    }
+
+    resolveFeatureAngle 20;
+
+    refinementRegions
+    {
+        refinementBox
+        {
+            mode inside;
+            levels ((1.0 3));
+        }
+        aftRefinementBox
+        {
+            mode inside;
+            levels ((1.0 4));
+        }
+    }
+
+    locationInMesh (-2.15 0.85 0.85);
+    allowFreeStandingZoneFaces false;
+}
+
+snapControls
+{
+    nSmoothPatch      3;
+    tolerance         1.0;
+    nSolveIter        30;
+    nRelaxIter        5;
+    nFeatureSnapIter  15;
+}
+
+addLayersControls
+{
+    relativeSizes true;
+    layers
+    {
+        "SRocketMesh.*"
+        {
+            nSurfaceLayers 3;
+        }
+    }
+    expansionRatio 1.2;
+    finalLayerThickness 0.3;
+    minThickness 0.05;
+    nGrow 0;
+    featureAngle 60;
+    nRelaxIter 5;
+    nSmoothSurfaceNormals 1;
+    nSmoothNormals 3;
+    nSmoothThickness 10;
+    maxFaceThicknessRatio 0.5;
+    maxThicknessToMedialRatio 0.3;
+    minMedialAxisAngle 90;
+    nBufferCellsNoExtrude 0;
+    nLayerIter 50;
+}
+
+meshQualityControls
+{
+    maxNonOrtho 65;
+    maxBoundarySkewness 20;
+    maxInternalSkewness 4;
+    maxConcave 80;
+    minVol 1e-13;
+    minTetQuality 1e-9;
+    minArea -1;
+    minTwist 0.02;
+    minDeterminant 0.001;
+    minFaceWeight 0.02;
+    minVolRatio 0.01;
+    minTriangleTwist -1;
+    nSmoothScale 4;
+    errorReduction 0.75;
+}
+
+writeFlags();
+mergeTolerance 1e-6;
