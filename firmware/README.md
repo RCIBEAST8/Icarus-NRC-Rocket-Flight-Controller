@@ -45,14 +45,15 @@ they get driven fully open to add drag on the way down.
 | `BARO_TRUST` | 0.35 | how much of the baro/inertial gap gets corrected each tick |
 | `area` | 0.0019635 m^2 | CFD reference area, has to match the CFD |
 | `CDClean` / `CDMax` | 0.4724 / 0.8776 | straight out of `cfd/clean` and `cfd/deployed` |
-| `apogeeTgt` | 670 m | target apogee (about 2200 ft) |
+| `apogeeTgt` | 560 m | target apogee (about 1840 ft) |
 | `overshootPenalty` | 1.25 | makes the controller prefer undershooting |
 | `MPC_CANDIDATES` | 41 | how many drag values it tries per cycle |
 
-`padMass` and `dryMass` are both 0.7293 kg and they're meant to be. The mass
-model deliberately holds dry mass throughout rather than interpolating down
-through the burn, and the controller is gated off until after burnout anyway, so
-it never sees a wet mass.
+`padMass` is the wet mass at 0.789 kg, `dryMass` is 0.7293 kg. Through the burn
+the mass is interpolated linearly between the two on elapsed time, then held at
+dry mass after burnout. A straight line isn't the real burn profile, but the burn
+is 1.4 s and the MPC doesn't arm until 0.1 s after it, so in practice the
+controller only ever sees dry mass anyway.
 
 ## Real-time classification
 
@@ -66,13 +67,15 @@ a 5 degree deadband.
 
 ## Known issues
 
-`apogeeTgt` is 670 m here, but `simulation/ICARUS_Flight_Data_Logger_v2.m`
+`apogeeTgt` is 560 m here, but `simulation/ICARUS_Flight_Data_Logger_v2.m`
 defaults to 530 m. Set the analyser to match whichever build produced the log or
 the error traces will lie to you.
 
-The OpenRocket model in `simulation/` tops out at 613.7 m across its saved runs,
-which is below the 670 m target. The model needs re-running against the current
-build before those two mean anything together.
+The OpenRocket runs in `simulation/` land between 562.7 and 613.7 m clean, so a
+560 m target sits under all of them and the brakes always have something to shed.
+The margin at the bottom of that spread is only about 3 m though, so on a slow
+day there's very little for the controller to work with.
 
 A couple of comments are out of date. There's still an `airbreak` spelling on
-line 50, and a comment on line 476 that says 11 sims when the sweep is 41.
+lines 50 and 463, and a comment on line 473 that says 11 sims when the sweep is
+41.

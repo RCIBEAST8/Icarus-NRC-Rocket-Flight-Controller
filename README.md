@@ -57,7 +57,7 @@ Every 20 ms cycle, once the motor's done burning, it:
 
 1. sweeps 41 candidate drag coefficients between `CDClean` and `CDMax`
 2. predicts what apogee each one gets you
-3. picks whichever lands nearest the 670 m target, with overshoot punished 1.25x
+3. picks whichever lands nearest the 560 m target, with overshoot punished 1.25x
    harder than undershoot (you can always add more drag later, you can never
    take it back)
 4. maps that Cd to a servo angle, limited to 3 deg per step

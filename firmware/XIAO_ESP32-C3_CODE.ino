@@ -1,4 +1,4 @@
-// for XIAO ESP32-C3 
+// for xiao esp32-c3  (no FPU so thats why there is "f" on most values)
 // Icarus rocket
 // mpc controller
 
@@ -23,7 +23,7 @@
 // SPI linking 
 const int chipSelect = D3;
 const int SD_SCK  = D8;
-const int SD_MISO = D2; 
+const int SD_MISO = D2;  // not the normal MISO pin, the default one messes with boot on the xiao and drops it into sleep states
 const int SD_MOSI = D10;
 
 //sensor objects
@@ -63,15 +63,15 @@ float currentAltitude = 0.0;
 float previousAltitude = 0.0;
 unsigned long previousTime = 0;
 
-// Distance and velocity tracking; initializes at 1m after launch.
+// distance and velocity tracking for code starter. code is gonna kick in a 1m as the rocket will reach that after 140ms with roughly 101m/s (acceleration) off launch. i think anyway, based on math from 20.1m/s at 2m
 //starting code
-float currentvelocity = 0.0; // Used only on the launchpad to prevent sensor drift.
+float currentvelocity = 0.0; // used only on pad not in air (drifts values alot)
 float barovelocity = 0.0;
 float distancetravelled = 0.0;
 float predictedVel = 0.0;
 float baroAccel = 0.0;
 float alpha = 0.4; // controls how strongly the barometer measurements corrects velocity estimates // higher the number higher the noise but faster tracking
-float beta = 0.05; // Similar to alpha, but set very low to minimize noise amplification. 
+float beta = 0.05; // similar to above but extremely noise so set very low 
 float fusedVelocity = 0.0; // the velocity the mpc uses as the baro is filtered at 10hz in code even though the sensor runs at 50hz, im making it purposely lower
 const float BARO_TRUST = 0.35;  // how hard each baro tick corrects the fusion // 0.35 means 35% of the gap on every tick basically enough to stop accelerometer drift
 
@@ -79,10 +79,10 @@ const float BARO_TRUST = 0.35;  // how hard each baro tick corrects the fusion /
 const float RHO_MIN = 0.6;
 const float RHO_MAX = 1.4;
 const float VEL_MIN = -150.0;
-const float VEL_MAX = 200.0; // real max vel is ~116m/s so 84m/s of headroom 
+const float VEL_MAX = 200.0; // real max vel is ~116m/s so 85m/s of headroom 
 
 //backup apogee detection
-int fallingCount = 0; // Backup apogee detection in case velocity estimates degrade.
+int fallingCount = 0; //back up incase velocity estimate is wack
 float peakAltitude = 0.0; // logs highest altitude reach at all times
 
 //landing detection and health check
@@ -91,21 +91,17 @@ volatile bool closeRequested = false;
 unsigned int droppedLogs = 0;
 unsigned int missedBaro = 0;
 
-// Reference altitude and threshold bands for landing detection.
+//referance altitude and brands for landing detector
 float landingRefAlt = 0.0;
 const float LANDING_ALT_MAX  = 25.0;   // max altitude from pad altitude which landing could happen at. pad is roughly 103m from sealevel so max would be +128m and -78m more than big enough headroom
 const float LANDING_ALT_BAND = 3.0;    // altitude must not move more than this
 const float LANDING_ACC_BAND = 1.5;    // |a| must be within this of 1g
 
-// REAL TIME MASS CALC
+// REAL TIME MASS CALC overkill but fun
 unsigned long launchTime = 0; // total launch time from burn start
-
-// MUST BE SAME
-float padMass = 0.7293; // same as DRY MASS
 float dryMass = 0.7293; // DRY MASS WEIGHT
-// MUST BE SAME 
-
-float currentMass = 0.789; // WET MASS 
+float padMass = 0.789; // WET MASS 
+float currentMass = padMass;
 float burnTime = 1.4;  //1.4s rocket burn // G78G-7 aerotech rocket motor 
 
 //servo controller
@@ -115,24 +111,24 @@ const int SERVO_MAX = 126;      // hard upper limit // closed = least drag
 const int SERVO_STEP = 3;       // maximum degrees per step
 const int SERVO_DEADBAND = 5;   // ignores any movements under 5 degrees 
 
-// MPC variables
+//mpc varibles 
 float area = 0.0019635;   // cfd referenace area 
 float rho = 1.225;        // density of air (1.225kg/m^3)
 float CDClean = 0.4724;   // airbrakes retracted //validated by my CFD
 float CDMax   = 0.8776;   // airbrakes deployed  //validated by my CFD
 float CD = CDClean;       // mpc starts clean each run
-int apogeeTgt = 670;      // Target apogee in meters (670m approx. 2200 ft)
+int apogeeTgt = 560;      //apoge target in metres (560m = 1837 feet) (580m = 1902 feet) (600m = 1968 feet)
 const float overshootPenalty = 1.25; // tells the mpc to aim for slight undershoot rather than extreme overshoot
-const float MPC_ARM_MARGIN_S = 0.1; // 0.1s delay after burn phase before servo actuation to prevent mechanical overstrain.
+const float MPC_ARM_MARGIN_S = 0.1; // 0.1s delay before servo is aloud to move after burn phase so it doesnt strain itself, might change to 0.3seconds
 
 //apogee airbrake controller
 const unsigned long AIRBRAKE_DESCENT_DELAY_MS = 3000UL; // 3 second delay after apogee to max airbrakes
 unsigned long apogeeTime = 0;
 bool brakesDeployed = false; // check airbrake state
 
-// MPC 
+// MPC stuff
 #define MPC_CANDIDATES 41  // amount of sims
-float bestApogee = 0.0; //what the winning candidate predicted 
+float bestApogee = 0.0;          //what the winning candidate predicted 
 
 // accelerometer scale correction 
 float accelScale = 1.0f;
@@ -164,22 +160,24 @@ float airDensity()
 
 //                                       apogee predictor                                            // 
 
-// Simulates projected apogee based on immediate airbrake deployment.
+// sim predicts what do with the brakes based on the logic of if i slammed the brakes now and coast what would my apogee be
 // sim comes from:        m·dv/dt = -mg - ½·ρ·Cd·A·v²       which goes to       v·dv/dh = -g - k·v²        where k = ρ·Cd·A/(2m) where time is swapped for height using   v·dv/dh = dv/dt
 float predictApogee(float cdSim, float alt0, float v0, float mass)
 {
   if (v0 <= 0.0f) return alt0; // checks how much the rocket will climb at current speed, (also techincally kills the sim at apogee where velocity becomes negative along Y axis)
   float k = (rho * cdSim * area) / (2.0f * mass); // bundles the whole drag setup into one number
-  if (k < 1e-9f) return alt0; // Prevent divide-by-zero errors in trajectory equations.
+  if (k < 1e-9f) return alt0; // divide-by-zero guard (would of put a NaN but it woulda killed it)
   float h = (1.0f / (2.0f * k)) * logf(1.0f + (k * v0 * v0) / 9.81f); // sim output (how much higher the rocket will climb until apogee (velcoity =0))
   float rhoMid = rho * (1.0f - (0.5f * h) / 8500.0f); // redo sim but with decaying density (air thinner not by much but mayaswell)
-  if (rhoMid < RHO_MIN) rhoMid = RHO_MIN; // Clamp air density to prevent unphysical negative values.
+  if (rhoMid < RHO_MIN) rhoMid = RHO_MIN; // stops a insane H value given (basically if h was too big it would turn rhoMid negative basically saying neagtive density which means negative drag so bad)
   // redoes the sim part with the new density (more accurate density)
   k = (rhoMid * cdSim * area) / (2.0f * mass); 
   if (k < 1e-9f) return alt0;
   h = (1.0f / (2.0f * k)) * logf(1.0f + (k * v0 * v0) / 9.81f);
   return alt0 + h; // coast height (h) added to curent altitude (predicted apogee)
 
+  //lots of math, lokey been cooking this up for the past few months since i made the first iteration, i wanna say its perfect now.
+}
 
 //                                      main setup                                  //
 void setup()
@@ -191,7 +189,7 @@ void setup()
   delay (2000); // safety net
 
   // Creates the queue in RAM and launches the background SD logger.
-  // Disables logging if queue allocation fails to maintain execution safety.
+  //also kills logging if queue crashes so it doesnt kill the entire code
   sdQueue = xQueueCreate(LOG_QUEUE_LEN, sizeof(logBuffer));
   if (sdQueue == NULL)
   {
@@ -207,7 +205,7 @@ void setup()
     &sdTaskHandle  //handle
   );
 
-  // Allocate hardware timers for ESP32-C3 servo control.
+  //the xiao needs its own timers allocated before it'll write servos
   ESP32PWM::allocateTimer(0);
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
@@ -226,13 +224,13 @@ void setup()
   Serial.println("Servo test complete now ready to launch");
 
 
-  // Set I2C bus clock speed to 400kHz.
+  //cranking up the speed on i2c bus to 400kHz
   Wire.begin();
   Wire.setClock(400000);
 
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, chipSelect); //forcing spi pins
 
-  if (!SD.begin(chipSelect, SPI, 4000000)) // Disable logging if SD initialization fails.
+  if (!SD.begin(chipSelect, SPI, 4000000)) // checks SD card is working and kills logging if its fails so doesnt kill code
   {
     Serial.println("SD Card Failed - CONTINUING WITHOUT LOGGING");
     loggingEnabled = false;
@@ -242,7 +240,7 @@ void setup()
   if (!bmp.begin_I2C())
   {
     Serial.println("BMP390 Failed to initialize");
-    while(1) { vTaskDelay(pdMS_TO_TICKS(100)); } // Halt execution if BMP390 initialization fails.
+    while(1) { vTaskDelay(pdMS_TO_TICKS(100)); } //properly block BMP390 if it fail fails (better than yield)
   }
 
 
@@ -272,7 +270,7 @@ void setup()
     delay(50);
   }
 
-  // Calibrate ground level altitude relative to sea level pressure.
+  //BMP reads where it is compared to sea level to get ground level. im a genius BTW
   Serial.println("Calibrating Ground Altitude");
   float altSum = 0.0f;
   int   altN = 0;
@@ -302,13 +300,13 @@ void setup()
   if (dataFile)
   {
     dataFile.println("Time(ms),State,Alt,Vel,ServoAngle,Temp_C,Press_Pa,AccelX,AccelY,AccelZ,GyroX,GyroY,GyroZ,MagX,MagY,MagZ,CD,PredApogee"); // logging column headers
-    dataFile.flush(); // Flush data buffers to disk.
+    dataFile.flush(); // flushes data to the other void code 
     Serial.println("sensors are logging, READY FOR LAUNCH GO GO GOOOOOOO");
   }
   else
   {
     Serial.println("Error starting file, check for corruption");
-    loggingEnabled = false; // Disable logging on initialization failure.
+    loggingEnabled = false; // just incase it dies during flight or when the rocket is on the rail
   }
 
   delay(5000); //safety net
@@ -319,7 +317,7 @@ void setup()
 //                            main code                               //
 void loop()
 {
-  // Maintain fixed-interval timing loop execution.
+  // timing stuff for sim loops so if sd or mpc messes up this fixes it or prevents it
   unsigned long currentMicros = micros();
   if (currentMicros - previousMicros >= INTERVAL_US)
   {
@@ -336,7 +334,9 @@ void loop()
       }
     else
     {
-      currentAltitude = altitudeFromPa();
+      float altNew = altitudeFromPa();
+      if (altNew > -500.0f && altNew < 10000.0f) { currentAltitude = altNew; } //rejects non finite altitude so the code doesnt use it
+      else { baroOk = false; missedBaro++; }
     }
     sensors_event_t accel, gyro, mag, temp;
     icm.getEvent(&accel, &gyro, &temp, &mag);
@@ -353,8 +353,8 @@ void loop()
     if (currentState == PAD_IDLE)
     {
       //abs acceleration in all directions
-      float accelMag = sqrtf(sq(ax) + sq(ay) + sq(az));
-      // Subtract gravitational acceleration (1G).
+       float accelMag = sqrtf(sq(ax) + sq(ay) + sq(az));
+      // subtract 1G cus gravity
       float netAccel = accelMag - 9.81f;
 
       //filter to ignore anything less than (2m/s)^2 or 0.204G
@@ -364,16 +364,13 @@ void loop()
       }
       else
       {
-        // only checks when accel is low to nothing
-        if (currentvelocity < 1.0f)
-        {
-          currentvelocity = 0.0f;
-          distancetravelled = 0.0f;
-        }
+        currentvelocity = 0.0f;
+        distancetravelled = 0.0f;
       }
 
       // Always add velocity to distance. (If we are on the pad, velocity is 0, so distance stays 0).
       distancetravelled += currentvelocity * dt;
+
 
       //checks for ascent 
       if (distancetravelled >= 1.0f || agl >= 50.0f) // checks till 50m above pad
@@ -381,9 +378,9 @@ void loop()
         currentState = ASCENT;
         launchTime = (millis() > 150UL) ? (millis() - 150UL) : millis(); // estimatees when igntion happened
         fusedVelocity = currentvelocity;
-        barovelocity = 0.0f;   // Initialize barometer acceleration estimate.
+        barovelocity = 0.0f;   //starts clean so it ignores noise from being on pad
         baroAccel = 0.0f;      //integrates with no decay so it drifts worst
-        peakAltitude = 0.0f;
+        peakAltitude = agl;
         fallingCount = 0;
         Serial.println(" Nominal Launch , Sensors are Logging ");
       }
@@ -392,7 +389,7 @@ void loop()
 
     if (currentState != PAD_IDLE)
     {
-      float aVert = az - 9.81f; // Vertical acceleration minus gravity
+      float aVert = az - 9.81f; // vertical velocity 
       fusedVelocity += aVert * dt; //integrates it forward 
       fusedVelocity = constrain(fusedVelocity, VEL_MIN, VEL_MAX); //backup incase ICM glitches or saturates
     }
@@ -402,7 +399,7 @@ void loop()
     float timeSinceLastVel = (currentMillis - previousTime) / 1000.0f;
     if (baroOk && timeSinceLastVel >= 0.1f) // makes the filter run at 10hz (slower than the 20ms(50hz) loop so it doesnt get buried in noise)
     {
-      float rawVel = (currentAltitude - previousAltitude) / timeSinceLastVel; // Calculate raw vertical velocity for filtering.
+      float rawVel = (currentAltitude - previousAltitude) / timeSinceLastVel; // raw velocity is simple and very noise so needs filtering
 
       // Predict next state
       predictedVel = barovelocity + (baroAccel * timeSinceLastVel);
@@ -428,7 +425,7 @@ void loop()
       //                                                   REAL TIME MASS CALC                        //
 
       float elapsed = (currentMillis - launchTime) / 1000.0f;
-      if (elapsed < burnTime) // Approximate mass burn profile linearly.
+      if (elapsed < burnTime) // linear from wet mass to dry mass (obv not linear in real life but its only 1.4s burn time)
       {
         currentMass = padMass - ((padMass - dryMass) * (elapsed / burnTime));
       }
@@ -449,7 +446,7 @@ void loop()
       }
 
       // Check for apogee for descent
-      if (fusedVelocity < -2.0f || fallingCount >= 5) 
+      if (peakAltitude > 50.0f && (fusedVelocity < -2.0f || fallingCount >= 5))
       {
         currentState = DESCENT;
         myservo.write(SERVO_MAX); // stowed till parachute deployment
@@ -463,11 +460,11 @@ void loop()
       }
       else
       {
-        // Keep airbrakes stowed during motor burn phase.
+        // new burnphase check, keep airbreaks stored till burn is over
         if (elapsed >= burnTime + MPC_ARM_MARGIN_S)
         {
 //                          MPC CONTROLLER                                         //
-          // Model Predictive Control trajectory simulation.
+          // NEW MPC REFINEMENT AND PHYSYICS SIM (lemme cook gang)
 
           float rhoNow = airDensity(); // call
           rho = constrain(rhoNow, RHO_MIN, RHO_MAX); // variable based on call also validates it 3 times from the 3 density checks at the start of code 
@@ -498,7 +495,7 @@ void loop()
           }
           CD = bestCD;
 
-          // Apply limits and slew rate smoothing to protect servo hardware.
+          //servo smoothing and limits so the servo doesnt strain itself
           int targetAngle = map((long)(CD * 10000), (long)(CDClean * 10000), (long)(CDMax * 10000), SERVO_MAX, SERVO_MIN);
           targetAngle = constrain(targetAngle, SERVO_MIN, SERVO_MAX);
 
@@ -565,7 +562,8 @@ void loop()
 
     if (loggingEnabled && (currentState == ASCENT || currentState == DESCENT)) //stop logging once landed
     {
-      // Buffer telemetry records in RAM to optimize SD write performance.
+      // due to the xiao having a 32bit RISC-V chip i can log much faster than a normal chip as this bit underneath basically combines all data into a single text array in RAM. (basically this thing is seriously fast
+      // thought we needed faster as the rocket is going mach 0.4)
       float pressureLog = pressurePa();
       snprintf(logBuffer, sizeof(logBuffer), "%lu,%d,%.2f,%.2f,%d,%.2f,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.4f,%.1f\n",
         currentMillis, currentState, agl, fusedVelocity, currentServoAngle,
@@ -597,7 +595,7 @@ void logToSDTask(void *pvParameters)
       if (dataFile)
       {
         dataFile.print(taskBuffer);
-        // Flush data queue periodically or when idle.
+        // Flush every 2 seconds and only once nothing is left queued. also every 10s regardless cus overdue tasks bad
         bool quiet = (uxQueueMessagesWaiting(sdQueue) == 0 && millis() - lastFlush >= 2000);
         bool overdue = (millis() - lastFlush >= 10000); 
         if (quiet || overdue)
@@ -620,3 +618,10 @@ void logToSDTask(void *pvParameters)
 }
 
 // end of code
+// god speed ICARUS, Go Touch The Sun.
+
+
+
+
+
+

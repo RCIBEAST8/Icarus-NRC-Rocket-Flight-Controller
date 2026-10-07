@@ -4,6 +4,8 @@ Two OpenFOAM cases over the same mesh and the same reference conditions. The onl
 thing that changes between them is whether the airbrakes are out. These two runs
 are where the controller's drag model comes from.
 
+![Velocity magnitude on the symmetry plane, airbrakes deployed](renders/velocity-midplane.png)
+
 | Case | Brakes | Mean Cd | Firmware constant |
 |---|---|---|---|
 | `clean/` | retracted | 0.472380 | `CDClean = 0.4724` |
@@ -12,6 +14,13 @@ are where the controller's drag model comes from.
 86% more drag with the brakes out. Mean Cd is averaged over 0.025-0.050 s, after
 the force history has settled down. `rangeCD.dat` in each case has the standard
 deviation and the min/max over that window if you want to see how steady it was.
+
+![Drag coefficient convergence, deployed case](renders/cd-convergence.png)
+
+Cd is inside 0.1% of its own mean by 9.4 ms and the whole averaging window fits in
+±0.0002, so the number isn't sensitive to where I put the window.
+
+Every picture on this page is the deployed run at the final time, 0.05 s.
 
 ## Setup
 
@@ -32,6 +41,27 @@ the deployed config (that's about 0.00340 m^2, 1.73x bigger). The firmware uses
 the same 0.0019635, so the CFD and what the rocket thinks are always the same
 number.
 Don't mix the two up.
+
+## What the flow looks like
+
+![Airbrake and fin wake, base recirculation](renders/airbrake-wake.png)
+
+The blades sit just ahead of the fins and throw a thick low speed wake straight
+down the fin span. The flat base is doing its own share behind that, with the
+recirculation sitting in the middle of it.
+
+![Surface pressure coefficient](renders/surface-pressure.png)
+
+Cp on the skin. High pressure on the nose and on the leading face of each blade,
+suction immediately behind them, and the rail buttons showing up as their own
+little pressure spots. The scale is clipped at ±0.15 so the nose saturates, real
+stagnation Cp there is about 1.
+
+![snappyHexMesh refinement at the airbrakes and fins](renders/mesh-tail.png)
+
+The mesh around the tail. Surface refinement levels 5-6, 3 prism layers, 648,681
+cells with 92% of them hexahedra. `checkMesh` flagged 8 highly skewed faces, so
+it isn't a clean pass.
 
 ## Where these numbers are weak
 
@@ -70,7 +100,8 @@ foamRun > log.foamRun 2>&1 &
 ```
 
 `scripts/` has the post-processing I used to get from `forceCoeffs.dat` down to
-the summary numbers above.
+the summary numbers above. The pictures were rendered straight out of the case
+with `pvbatch` offscreen, and `renders/` holds them.
 
 There's also a separate fin position study (`Wing_pos_*`) that isn't in here. I
 can add it if it's useful.

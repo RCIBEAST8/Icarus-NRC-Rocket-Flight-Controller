@@ -10,8 +10,9 @@ The model holds several saved runs. They land between 562.7 m and 613.7 m
 apogee, with max velocity between 121.6 and 124.5 m/s.
 
 Those are clean numbers, brakes stowed the whole way up. The flight code targets
-670 m, which is above every run in this file, so the model is behind the current
-build and needs re-running before the two can be compared properly.
+560 m, which sits under every run here, so the controller always has something to
+trim off. The slowest run only clears the target by about 3 m though, so that's
+the case worth re-running when the model gets updated.
 
 ## Motor, AeroTech G78G-7
 
@@ -47,7 +48,7 @@ Set `CFG.file` to point it at something, or just drop it in a folder full of CSV
 and it grabs the newest one.
 
 Check `CFG.targetApogee` before you read anything into a plot. It defaults to
-530 m and the flight firmware now targets 670 m, so if they don't match the error
+530 m and the flight firmware now targets 560 m, so if they don't match the error
 traces will look wrong.
 
 One that's easy to get backwards: 126 degrees is stowed (minimum drag) and 0 is
