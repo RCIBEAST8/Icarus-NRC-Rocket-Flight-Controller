@@ -26,12 +26,18 @@ MISO isn't on the usual pin, because of boot state issues on the XIAO.
 `PAD_IDLE` -> `ASCENT` -> `DESCENT` -> `LANDED`
 
 Launch detect fires on integrated IMU distance >= 1.0 m or altitude >= 50 m AGL.
-The IMU integration is only used for launch detection, it never gets fused into
-barometric velocity once we're flying, because it drifts badly.
+That pad integration (`currentvelocity`) is only used to spot the launch and to
+seed the in-flight estimate, it gets thrown away after that because it drifts.
 
-Apogee detect fires on fused velocity < -2.0 m/s or 5 falling samples in a row.
-Landing detect wants altitude stable within 3 m and acceleration within
-1.5 m/s^2 of 1 g, held for 5 seconds.
+In flight the accelerometer propagates velocity every 20 ms tick and the
+barometer corrects it, pulling the estimate 35% of the way toward the alpha-beta
+baro velocity each 10 Hz update. During the burn that correction is switched off
+completely, so for the first 1.4 s it's running on the accelerometer alone.
+
+Apogee detect needs peak altitude above 50 m first, then fires on fused velocity
+< -2.0 m/s or 5 falling samples in a row. Landing detect wants to be below 25 m
+AGL with altitude stable within 3 m and acceleration within 1.5 m/s^2 of 1 g,
+held for 5 seconds.
 
 Brakes stay stowed until burn time + 0.1 s, then the controller arms. That delay
 is there to stop the servo straining against itself. Three seconds after apogee
@@ -62,8 +68,8 @@ not a released RTOS task. No measured worst case execution time, no deadline mis
 detection. SD writes are queued so they can't stall the loop.
 
 Guards that are in there: density clamped to 0.6-1.4 kg/m^3, velocity clamped to
--150 to 200 m/s, a divide by zero guard on the drag term, servo rate limiting and
-a 5 degree deadband.
+-150 to 200 m/s, barometric altitude rejected outside -500 to 10000 m, a divide
+by zero guard on the drag term, servo rate limiting and a 5 degree deadband.
 
 ## Known issues
 
