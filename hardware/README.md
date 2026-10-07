@@ -25,8 +25,9 @@ keep it alive while a servo shares the same supply.
 
 The bulk cap next to `J4` is there on purpose. A servo under stall load pulls
 current in sharp bursts and without local bulk capacitance those transients drag
-the rail down far enough to brown out the microcontroller mid flight. The IMU and baro also get their own separate I2C
-headers rather than being daisy chained, so each one gets a short run.
+the rail down far enough to brown out the microcontroller mid flight. The IMU and
+baro also get their own separate I2C headers rather than being daisy chained, so
+each one gets a short run.
 
 There are four renders in `renders/`: an isometric and a flat top down
 (`pcb_iso.png`, `pcb_top.png`), plus the same two from underneath

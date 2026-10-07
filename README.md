@@ -122,10 +122,11 @@ my coefficients by it and you'll overstate drag by 73%.
 ## What's in here
 
 `firmware/` has the flight code and a software in the loop sim harness.
-`hardware/` has renders of the board. `cfd/` has the OpenFOAM case setups and the
-drag results for both configs. `simulation/` has the OpenRocket model, the motor
-curve and a MATLAB script for reading flight logs. `geometry/` has the STL the
-CFD was actually run against.
+`hardware/` has renders of the board. `cfd/` has the OpenFOAM case setups, the
+drag results for both configs and renders of the flow field. `simulation/` has
+the OpenRocket model, the motor curve and a MATLAB script for reading flight
+logs. `geometry/` has the STL the CFD was run against. `media/` has the bench
+test footage.
 
 ### On the board
 

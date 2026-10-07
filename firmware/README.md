@@ -70,18 +70,3 @@ detection. SD writes are queued so they can't stall the loop.
 Guards that are in there: density clamped to 0.6-1.4 kg/m^3, velocity clamped to
 -150 to 200 m/s, barometric altitude rejected outside -500 to 10000 m, a divide
 by zero guard on the drag term, servo rate limiting and a 5 degree deadband.
-
-## Known issues
-
-`apogeeTgt` is 560 m here, but `simulation/ICARUS_Flight_Data_Logger_v2.m`
-defaults to 530 m. Set the analyser to match whichever build produced the log or
-the error traces will lie to you.
-
-The OpenRocket runs in `simulation/` land between 562.7 and 613.7 m clean, so a
-560 m target sits under all of them and the brakes always have something to shed.
-The margin at the bottom of that spread is only about 3 m though, so on a slow
-day there's very little for the controller to work with.
-
-A couple of comments are out of date. There's still an `airbreak` spelling on
-lines 50 and 463, and a comment on line 473 that says 11 sims when the sweep is
-41.
