@@ -40,7 +40,6 @@ Every picture on this page is the deployed run at the final time, 0.05 s.
 the deployed config (that's about 0.00340 m^2, 1.73x bigger). The firmware uses
 the same 0.0019635, so the CFD and what the rocket thinks are always the same
 number.
-Don't mix the two up.
 
 ## What the flow looks like
 
