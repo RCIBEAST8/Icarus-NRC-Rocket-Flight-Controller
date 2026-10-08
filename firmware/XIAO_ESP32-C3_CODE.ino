@@ -63,17 +63,17 @@ float currentAltitude = 0.0;
 float previousAltitude = 0.0;
 unsigned long previousTime = 0;
 
-// distance and velocity tracking for code starter. code is gonna kick in a 1m as the rocket will reach that after 140ms with roughly 101m/s (acceleration) off launch. i think anyway, based on math from 20.1m/s at 2m
+// distance and velocity tracking for code starter. code is gonna kick in a 1m as the rocket will reach that after 140ms with roughly 101m/s (acceleration) off launch.
 //starting code
-float currentvelocity = 0.0; // used only on pad not in air (drifts values alot)
+float currentvelocity = 0.0;     // used only on pad not in air (drifts values alot)
 float barovelocity = 0.0;
 float distancetravelled = 0.0;
 float predictedVel = 0.0;
 float baroAccel = 0.0;
-float alpha = 0.4; // controls how strongly the barometer measurements corrects velocity estimates // higher the number higher the noise but faster tracking
-float beta = 0.05; // similar to above but extremely noise so set very low 
-float fusedVelocity = 0.0; // the velocity the mpc uses as the baro is filtered at 10hz in code even though the sensor runs at 50hz, im making it purposely lower
-const float BARO_TRUST = 0.35;  // how hard each baro tick corrects the fusion // 0.35 means 35% of the gap on every tick basically enough to stop accelerometer drift
+float alpha = 0.4;                // controls how strongly the barometer measurements corrects velocity estimates // higher the number higher the noise but faster tracking
+float beta = 0.05;                // similar to above but extremely noise so set very low 
+float fusedVelocity = 0.0;        // the velocity the mpc uses as the baro is filtered at 10hz in code even though the sensor runs at 50hz, im making it purposely lower
+const float BARO_TRUST = 0.35;    // how hard each baro tick corrects the fusion // 0.35 means 35% of the gap on every tick basically enough to stop accelerometer drift
 
 //sanity clamps for BMP
 const float RHO_MIN = 0.6;
@@ -97,12 +97,12 @@ const float LANDING_ALT_MAX  = 25.0;   // max altitude from pad altitude which l
 const float LANDING_ALT_BAND = 3.0;    // altitude must not move more than this
 const float LANDING_ACC_BAND = 1.5;    // |a| must be within this of 1g
 
-// REAL TIME MASS CALC overkill but fun
-unsigned long launchTime = 0; // total launch time from burn start
-float dryMass = 0.7293; // DRY MASS WEIGHT
-float padMass = 0.789; // WET MASS 
+// REAL TIME MASS CALC
+unsigned long launchTime = 0;           // total launch time from burn start
+float dryMass = 0.7293;                 // DRY MASS WEIGHT
+float padMass = 0.789;                  // WET MASS 
 float currentMass = padMass;
-float burnTime = 1.4;  //1.4s rocket burn // G78G-7 aerotech rocket motor 
+float burnTime = 1.4;                   //1.4s rocket burn // G78G-7 aerotech rocket motor 
 
 //servo controller
 int currentServoAngle = 126;    // tracks servo degrees
@@ -112,14 +112,14 @@ const int SERVO_STEP = 3;       // maximum degrees per step
 const int SERVO_DEADBAND = 5;   // ignores any movements under 5 degrees 
 
 //mpc varibles 
-float area = 0.0019635;   // cfd referenace area 
-float rho = 1.225;        // density of air (1.225kg/m^3)
-float CDClean = 0.4724;   // airbrakes retracted //validated by my CFD
-float CDMax   = 0.8776;   // airbrakes deployed  //validated by my CFD
-float CD = CDClean;       // mpc starts clean each run
-int apogeeTgt = 560;      //apoge target in metres (560m = 1837 feet) (580m = 1902 feet) (600m = 1968 feet)
-const float overshootPenalty = 1.25; // tells the mpc to aim for slight undershoot rather than extreme overshoot
-const float MPC_ARM_MARGIN_S = 0.1; // 0.1s delay before servo is aloud to move after burn phase so it doesnt strain itself, might change to 0.3seconds
+float area = 0.0019635;                  // cfd referenace area 
+float rho = 1.225;                       // density of air (1.225kg/m^3)
+float CDClean = 0.4724;                  // airbrakes retracted //validated by my CFD
+float CDMax   = 0.8776;                  // airbrakes deployed  //validated by my CFD
+float CD = CDClean;                      // mpc starts clean each run
+int apogeeTgt = 560;                     //apoge target in metres (560m = 1837 feet) (580m = 1902 feet) (600m = 1968 feet)
+const float overshootPenalty = 1.25;     // tells the mpc to aim for slight undershoot rather than extreme overshoot
+const float MPC_ARM_MARGIN_S = 0.1;      // 0.1s delay before servo is aloud to move after burn phase so it doesnt strain itself, might change to 0.3seconds
 
 //apogee airbrake controller
 const unsigned long AIRBRAKE_DESCENT_DELAY_MS = 3000UL; // 3 second delay after apogee to max airbrakes
@@ -127,8 +127,8 @@ unsigned long apogeeTime = 0;
 bool brakesDeployed = false; // check airbrake state
 
 // MPC stuff
-#define MPC_CANDIDATES 41  // amount of sims
-float bestApogee = 0.0;          //what the winning candidate predicted 
+#define MPC_CANDIDATES 41  // amount of simsulations
+float bestApogee = 0.0;    //what the winning candidate predicted 
 
 // accelerometer scale correction 
 float accelScale = 1.0f;
@@ -164,19 +164,19 @@ float airDensity()
 // sim comes from:        m·dv/dt = -mg - ½·ρ·Cd·A·v²       which goes to       v·dv/dh = -g - k·v²        where k = ρ·Cd·A/(2m) where time is swapped for height using   v·dv/dh = dv/dt
 float predictApogee(float cdSim, float alt0, float v0, float mass)
 {
-  if (v0 <= 0.0f) return alt0; // checks how much the rocket will climb at current speed, (also techincally kills the sim at apogee where velocity becomes negative along Y axis)
-  float k = (rho * cdSim * area) / (2.0f * mass); // bundles the whole drag setup into one number
-  if (k < 1e-9f) return alt0; // divide-by-zero guard (would of put a NaN but it woulda killed it)
-  float h = (1.0f / (2.0f * k)) * logf(1.0f + (k * v0 * v0) / 9.81f); // sim output (how much higher the rocket will climb until apogee (velcoity =0))
-  float rhoMid = rho * (1.0f - (0.5f * h) / 8500.0f); // redo sim but with decaying density (air thinner not by much but mayaswell)
-  if (rhoMid < RHO_MIN) rhoMid = RHO_MIN; // stops a insane H value given (basically if h was too big it would turn rhoMid negative basically saying neagtive density which means negative drag so bad)
-  // redoes the sim part with the new density (more accurate density)
+  if (v0 <= 0.0f) return alt0;                                            // checks how much the rocket will climb at current speed, (also techincally kills the sim at apogee where velocity becomes negative along Y axis)
+  float k = (rho * cdSim * area) / (2.0f * mass);                         // bundles the whole drag setup into one number
+  if (k < 1e-9f) return alt0;                                             // divide-by-zero guard (would of put a NaN but it woulda killed it)
+  float h = (1.0f / (2.0f * k)) * logf(1.0f + (k * v0 * v0) / 9.81f);     // sim output (how much higher the rocket will climb until apogee (velcoity =0))
+  float rhoMid = rho * (1.0f - (0.5f * h) / 8500.0f);                     // redo sim but with decaying density (air thinner not by much but mayaswell)
+  if (rhoMid < RHO_MIN) rhoMid = RHO_MIN;                                 // stops a insane H value given (basically if h was too big it would turn rhoMid negative basically saying neagtive density which means negative drag so bad)
+
+ // redoes the sim part with the new density (more accurate density)
   k = (rhoMid * cdSim * area) / (2.0f * mass); 
   if (k < 1e-9f) return alt0;
   h = (1.0f / (2.0f * k)) * logf(1.0f + (k * v0 * v0) / 9.81f);
-  return alt0 + h; // coast height (h) added to curent altitude (predicted apogee)
+  return alt0 + h;                                                        // coast height (h) added to curent altitude (predicted apogee)
 
-  //lots of math, lokey been cooking this up for the past few months since i made the first iteration, i wanna say its perfect now.
 }
 
 //                                      main setup                                  //
@@ -259,8 +259,8 @@ void setup()
     while(1) { vTaskDelay(pdMS_TO_TICKS(100)); } // same reason as BMP 390
   }
 
-  icm.setAccelRange(ICM20948_ACCEL_RANGE_16_G); // sets IMU to +or- 16G / peak G should be 11G
-  icm.setGyroRange(ICM20948_GYRO_RANGE_2000_DPS); //sets IMU to max 2000 degrees of roll per a second
+  icm.setAccelRange(ICM20948_ACCEL_RANGE_16_G);    // sets IMU to +or- 16G / peak G should be 11G
+  icm.setGyroRange(ICM20948_GYRO_RANGE_2000_DPS);  //sets IMU to max 2000 degrees of roll per a second
 
   // read ICM data 10 times to clear the buffer and also help it settle down to a stable state
   for (int i = 0; i < 10; i++)
@@ -425,7 +425,7 @@ void loop()
       //                                                   REAL TIME MASS CALC                        //
 
       float elapsed = (currentMillis - launchTime) / 1000.0f;
-      if (elapsed < burnTime) // linear from wet mass to dry mass (obv not linear in real life but its only 1.4s burn time)
+      if (elapsed < burnTime) // linear from wet mass to dry mass (obviously not linear in real life but its only 1.4s burn time)
       {
         currentMass = padMass - ((padMass - dryMass) * (elapsed / burnTime));
       }
@@ -562,8 +562,7 @@ void loop()
 
     if (loggingEnabled && (currentState == ASCENT || currentState == DESCENT)) //stop logging once landed
     {
-      // due to the xiao having a 32bit RISC-V chip i can log much faster than a normal chip as this bit underneath basically combines all data into a single text array in RAM. (basically this thing is seriously fast
-      // thought we needed faster as the rocket is going mach 0.4)
+      // due to the xiao having a 32bit RISC-V chip i can log much faster than a normal chip as this bit underneath basically combines all data into a single text array in RAM.
       float pressureLog = pressurePa();
       snprintf(logBuffer, sizeof(logBuffer), "%lu,%d,%.2f,%.2f,%d,%.2f,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.4f,%.1f\n",
         currentMillis, currentState, agl, fusedVelocity, currentServoAngle,
