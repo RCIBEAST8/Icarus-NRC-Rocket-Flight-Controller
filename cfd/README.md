@@ -80,28 +80,3 @@ The back end is a flat 50 mm disc. No nozzle, no boat tail. Base drag is doing
 real work in the clean number because of that.
 
 Axial flow only, one angle of attack. No yaw or pitch sweep.
-
-## Running it again
-
-Only the case dictionaries are tracked here, so `0/`, `system/` and the physical
-properties in `constant/`. The mesh is about 46 MB per case and the raw solver
-output is much bigger, so neither is in git. Rebuild from the STL in
-[`../geometry/`](../geometry/):
-
-```bash
-surfaceFeatures && blockMesh && snappyHexMesh -overwrite && foamRun
-```
-
-These take a while. Don't sit there blocking on them, background it and watch the
-log:
-
-```bash
-foamRun > log.foamRun 2>&1 &
-```
-
-`scripts/` has the post-processing I used to get from `forceCoeffs.dat` down to
-the summary numbers above. The pictures were rendered straight out of the case
-with `pvbatch` offscreen, and `renders/` holds them.
-
-There's also a separate fin position study (`Wing_pos_*`) that isn't in here. I
-can add it if it's useful.
